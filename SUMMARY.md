@@ -6,7 +6,7 @@
 
 * [环境配置(建设中)](general/env/README.md)
   * [Win11 WSL 环境配置](general/env/win11wsl.md)
-  * [Win 10 WSL 环境配置](general/env/win11wsl-1.md)
+  * [Win 10 WSL 环境配置](general/env/win10wsl.md)
   * [Github 云环境(建设中)](general/env/github.md)
   * [Win10 环境配置(建设中)](general/env/win10.md)
   * [Win11 环境配置（建设中）](general/env/win11.md)
