@@ -1,7 +1,7 @@
 # 贡献一个标准格式的数据集
 ## 在 projects 中贡献一个标准 mmseg 格式的数据集
 在您开始工作前，请先阅读[OpenMMLab 贡献代码指南](https://mmcv.readthedocs.io/zh_CN/latest/community/contributing.html),以了解更详细的代码贡献流程。
-该教程所贡献数据集为 GID 遥感图像语义分割数据集。
+该教程所贡献数据集为 [Gaofen Image Dataset (GID)](https://www.sciencedirect.com/science/article/pii/S0034425719303414) 和 WHDLD 遥感图像语义分割数据集。
 
 ## 1 配置 mmsegmentation 运行所需必要的环境，并 git clone mmsegmentation
 环境安装请参考[中文快速入门指南](https://github.com/open-mmlab/mmsegmentation/blob/main/docs/en/get_started.md)或[英文 get_started](https://github.com/open-mmlab/mmsegmentation/blob/main/docs/en/get_started.md)  
@@ -45,8 +45,11 @@ git checkout -b xxxx/xxxx
 详细请看[配置 pre-commit](https://mmcv.readthedocs.io/zh_CN/latest/community/contributing.html#pre-commit) 
 
 ## 3  在`mmsegmentation/projects`下贡献您的代码
+#### 先对 GID 数据集进行分析
 
-这里以贡献遥感图像语义分割数据集 WHDLD 为例
+这里以贡献遥感图像语义分割数据集 GID 为例，GID数据集是由我国自主研发的高分2号卫星所拍摄的光学遥感图像创建的，经图像预处理后共提供了150张6800*7200像素的RGB三通道的遥感图像。并提供了两种不同类别数的数据标注，一种是包含5类有效物体的RGB标签，另一种是包含15类有效物体的RGB标签。本教程将针对第一种标签进行数据集贡献讲解。  
+GID的5类有效标签分别为：0-背景-[0,0,0](mask标签值-标签名称-RGB标签值)、1-建筑-[255,0,0]、2-农田-[0,255,0]、3-森林-[0,0,255]、4-草地-[255,255,0]、5-水-[0,0,255]。在语义分割任务中，标签是与原图尺寸一致的单通道图像，标签图像中的像素值为真实样本图像中对应像素所包含的物体的类别。GID数据集提供的是具有RGB三通道的彩色标签，为了模型的训练需要将RGB标签转换为mask标签。并且由于图像尺寸为 6800*7200 像素，过大的图像尺寸对于神经网络的训练来说是不合适的，所以将每张图像裁切成了若干没有重叠的512*512的图像以便进行训练。
+![image](https://user-images.githubusercontent.com/50650583/234192183-83ee4209-e181-4a18-90ca-4d71757cd2c7.png)
 ### 3.1 在`mmsegmentation/projects`下创建新文件夹
 在`mmsegmentation/projects`下创建文件夹`gid_dataset`
 ![image](https://user-images.githubusercontent.com/50650583/233829687-8f2b6600-bc9d-48ff-a865-d462af54d55a.png)
@@ -62,7 +65,45 @@ git checkout -b xxxx/xxxx
 
 ### 3.3 贡献`mmseg/datasets/gid.py`
 可参考[`projects/mapillary_dataset/mmseg/datasets/mapillary.py`]并在此基础上修改相应变量以适配您的数据集。  
-#### 先对 GID 数据集进行分析
-GID数据集是由我国自主研发的高分2号卫星所拍摄的光学遥感图像创建的，经图像预处理后共提供了150张6800*7200像素的RGB三通道的遥感图像。并提供了两种不同类别数的数据标注，一种是包含5类有效物体的RGB标签，另一种是包含15类有效物体的RGB标签。本教程将详细叙述针对两种类别标签进行。
+```python
+# Copyright (c) OpenMMLab. All rights reserved.
+from mmseg.datasets.basesegdataset import BaseSegDataset
 
-GID的5类有效标签分别为：0-背景-[0,0,0](mask标签值-标签名称-RGB标签值)、1-建筑-[255,0,0]、2-农田-[0,255,0]、3-森林-[0,0,255]、4-草地-[255,255,0]、5-水-[0,0,255]。在语义分割任务中，标签是与原图尺寸一致的单通道图像，标签图像中的像素值为真实样本图像中对应像素所包含的物体的类别。GID数据集提供的是具有RGB三通道的彩色标签，为了模型的训练需要将RGB标签转换为mask标签。并且由于图像尺寸为6800*7200像素，过大的图像尺寸对于神经网络的训练来说是不合适的，所以将每张图像裁切成了若干没有重叠的512*512的图像以便进行训练。图2.1为GID数据集的部分数据展示。
+from mmseg.registry import DATASETS
+
+
+@DATASETS.register_module()       # 注册数据集类
+class GID_Dataset(BaseSegDataset):
+    """Gaofen Image Dataset (GID)
+
+    Dataset paper link:
+    https://www.sciencedirect.com/science/article/pii/S0034425719303414
+    
+    GID  5 classes: background, built-up, farmland, forest, meadow, water
+
+    The ``img_suffix`` is fixed to '.tif' and ``seg_map_suffix`` is
+    fixed to '.tif' for Mapillary Vistas Dataset.
+    """
+    METAINFO = dict(
+        classes=('background', 'built-up', 'farmland', 'forest', 
+                 'meadow', 'water'),
+
+        palette=[[0, 0, 0], [255, 0, 0], [0, 255, 0], [0, 255, 255],
+                 [255, 255, 0], [0, 0, 255]])
+
+    def __init__(self,
+                 img_suffix='.tif',
+                 seg_map_suffix='.tif',
+                 reduce_zero_label=None,
+                 **kwargs) -> None:
+        super().__init__(
+            img_suffix=img_suffix, 
+            seg_map_suffix=seg_map_suffix, 
+            reduce_zero_label=reduce_zero_label,
+            **kwargs)
+
+```
+
+
+
+
